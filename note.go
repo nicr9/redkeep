@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"gopkg.in/redis.v3"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -8,6 +10,7 @@ import (
 )
 
 type Note struct {
+	Id      int64    `yaml:"id"`
 	Title   string   `yaml:"title"`
 	Created int64    `yaml:"created"`
 	Updated int64    `yaml:"updated"`
@@ -17,7 +20,7 @@ type Note struct {
 	Body    string   `yaml:"body"`
 }
 
-func (n *Note) validate() error {
+func (n *Note) validate(client redis.Client) error {
 	// Initialise timestamps
 	now := time.Now().Unix()
 	if n.Created == 0 {
@@ -25,6 +28,10 @@ func (n *Note) validate() error {
 	}
 	if n.Updated == 0 {
 		n.Updated = now
+	}
+
+	if n.Id == 0 {
+		n.Id = client.Incr("redkeep:id-counter").Val()
 	}
 	return nil
 }

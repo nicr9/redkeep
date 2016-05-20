@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/redis.v3"
 	"log"
 	"os"
 	"os/exec"
@@ -25,10 +26,17 @@ func main() {
 		os.Exit(2)
 	}
 
+	client := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	client.SetNX("redkeep:id-counter", 0, 0)
+
 	switch os.Args[1] {
 	case "new":
 		note := Note{}
-		note.validate()
+		note.validate(*client)
 		notes := []Note{note}
 		filepath := ToTempFile(notes)
 		defer os.Remove(filepath)
