@@ -36,6 +36,53 @@ func (n *Note) validate(client redis.Client) error {
 	return nil
 }
 
+func (n *Note) toRedis(client redis.Client) error {
+	// Update timestamp
+	now := time.Now().Unix()
+	n.Updated = now
+
+	key := fmt.Sprintf("redkeep:note:%d", n.Id)
+
+	client.Set(fmt.Sprintf("%s:title", key), n.Title, 0)
+	client.Set(fmt.Sprintf("%s:created", key), n.Created, 0)
+	client.Set(fmt.Sprintf("%s:updated", key), n.Updated, 0)
+	client.Set(fmt.Sprintf("%s:body", key), n.Body, 0)
+
+	n.updateTags(client)
+
+	return nil
+}
+
+func (n *Note) updateTags(client redis.Client) {
+	key := fmt.Sprintf("redkeep:note:%d", n.Id)
+
+	tags_key := fmt.Sprintf("%s:tags", key)
+	temp_key := fmt.Sprintf("%s:temp", key)
+	remove_key := fmt.Sprintf("%s:remove", key)
+	update_key := fmt.Sprintf("%s:update", key)
+
+	client.SAdd(temp_key, n.Tags...)
+
+	client.SDiffStore(remove_key, tags_key, temp_key)
+	client.SDiffStore(update_key, temp_key, tags_key)
+
+	// for tag in remove_key
+	for _, tag := range client.SMembers(remove_key).Val() {
+		client.SRem(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%d", n.Id))
+	}
+
+	// for tag in update_key
+	for _, tag := range client.SMembers(update_key).Val() {
+		client.SAdd(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%d", n.Id))
+	}
+
+	client.Del(tags_key)
+	client.Rename(temp_key, tags_key)
+
+	client.Del(remove_key)
+	client.Del(update_key)
+}
+
 func ToTempFile(notes []Note) string {
 	// Marshall notes
 	data, err := yaml.Marshal(&notes)
@@ -60,4 +107,27 @@ func ToTempFile(notes []Note) string {
 	}
 
 	return tmpfile.Name()
+}
+
+func FromFile(filepath string) ([]Note, error) {
+	data, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	notes := []Note{}
+	err = yaml.Unmarshal(data, &notes)
+	if err != nil {
+		return nil, err
+	}
+
+	return notes, nil
+}
+
+func ValidateNotes(notes []Note, client redis.Client) error {
+	for i := range notes {
+		notes[i].validate(client)
+	}
+
+	return nil
 }

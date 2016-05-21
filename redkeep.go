@@ -36,11 +36,22 @@ func main() {
 	switch os.Args[1] {
 	case "new":
 		note := Note{}
-		note.validate(*client)
 		notes := []Note{note}
 		filepath := ToTempFile(notes)
 		defer os.Remove(filepath)
 		OpenEditor(filepath)
+		var err error
+		notes, err = FromFile(filepath)
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+		if err := ValidateNotes(notes, *client); err != nil {
+			log.Fatalf("validation error: %s", err)
+		}
+		for i := range notes {
+			fmt.Printf("Saving '%s'...\n", notes[i].Title)
+			notes[i].toRedis(*client)
+		}
 	default:
 		fmt.Printf("%q is not valid command.\n", os.Args[1])
 		os.Exit(2)
