@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -51,6 +52,13 @@ func main() {
 		for i := range notes {
 			fmt.Printf("Saving '%s'...\n", notes[i].Title)
 			notes[i].toRedis(*client)
+		}
+	case "list-tags":
+		keys := client.Keys("redkeep:tags:*").Val()
+		var tag string
+		for i, key := range keys {
+			tag = strings.TrimLeft("redkeep:tags:")
+			fmt.Printf("%d) %s\n", i, tag)
 		}
 	default:
 		fmt.Printf("%q is not valid command.\n", os.Args[1])
