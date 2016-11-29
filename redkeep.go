@@ -65,6 +65,19 @@ func main() {
 			tag = strings.TrimLeft(key, "redkeep:tags:")
 			fmt.Printf("%d) %s\n", i, tag)
 		}
+
+	case "search-tags":
+		tags := strings.Split(os.Args[2], ",")
+		for i, tag := range tags {
+			tags[i] = fmt.Sprintf("redkeep:tags:%s", tag)
+		}
+		noteIds := client.SDiff(tags...).Val()
+		notes, err := fromRedis(noteIds, client)
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+		EditNotes(notes)
+
 	default:
 		fmt.Printf("%q is not valid command.\n", os.Args[1])
 		os.Exit(2)
