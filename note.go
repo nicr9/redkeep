@@ -35,25 +35,42 @@ func (n *Note) validate(client redis.Client) error {
 	return nil
 }
 
-func (n *Note) toRedis(client redis.Client) error {
-	// Update timestamp
-	now := time.Now().Unix()
-	n.Updated = now
+func fromRedis(noteIds []string, client *redis.Client) (notes []Note, err error) {
+	for _, id := range noteIds {
+		title := client.Get(fmt.Sprintf("redkeep:note:%s:title", id)).Val()
+		created := client.Get(fmt.Sprintf("redkeep:note:%s:created", id)).Val()
+		updated := client.Get(fmt.Sprintf("redkeep:note:%s:updated", id)).Val()
+		body := client.Get(fmt.Sprintf("redkeep:note:%s:body", id)).Val()
 
-	key := fmt.Sprintf("redkeep:note:%d", n.Id)
+		tags := client.SMembers(fmt.Sprintf("redkeep:note:%s:tags", id)).Val()
+		open := client.LRange(fmt.Sprintf("redkeep:note:%s:open", id), 0, -1).Val()
+		closed := client.LRange(fmt.Sprintf("redkeep:note:%s:closed", id), 0, -1).Val()
+
+		obj := Note{id, title, created, updated, tags, open, closed, body}
+		notes = append(notes, obj)
+	}
+
+	return notes, nil
+}
+
+func (n *Note) toRedis(client redis.Client) error {
+	key := fmt.Sprintf("redkeep:note:%s", n.Id)
 
 	client.Set(fmt.Sprintf("%s:title", key), n.Title, 0)
 	client.Set(fmt.Sprintf("%s:created", key), n.Created, 0)
 	client.Set(fmt.Sprintf("%s:updated", key), n.Updated, 0)
 	client.Set(fmt.Sprintf("%s:body", key), n.Body, 0)
 
-	n.updateTags(client)
+	n.pushTags(client)
+
+	updateList(n.Open, fmt.Sprintf("redkeep:note:%s:open", n.Id), client)
+	updateList(n.Closed, fmt.Sprintf("redkeep:note:%s:closed", n.Id), client)
 
 	return nil
 }
 
-func (n *Note) updateTags(client redis.Client) {
-	key := fmt.Sprintf("redkeep:note:%d", n.Id)
+func (n *Note) pushTags(client redis.Client) {
+	key := fmt.Sprintf("redkeep:note:%s", n.Id)
 
 	tags_key := fmt.Sprintf("%s:tags", key)
 	temp_key := fmt.Sprintf("%s:temp", key)
@@ -80,6 +97,17 @@ func (n *Note) updateTags(client redis.Client) {
 
 	client.Del(remove_key)
 	client.Del(update_key)
+}
+
+func updateList(list []string, key string, client redis.Client) {
+	oldLen := client.LLen(key).Val()
+	for i, elem := range list {
+		client.LSet(key, int64(i), elem)
+	}
+	newLength := int64(len(list))
+	if oldLen > newLength {
+		client.LTrim(key, 0, newLength-1)
+	}
 }
 
 func ToTempFile(notes []Note) string {

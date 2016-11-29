@@ -7,10 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 var usage string = "Usage: redkeep <command> [<args>]"
+
+var client *redis.Client = redis.NewClient(&redis.Options{
+	Addr:     "localhost:6379",
+	Password: "", // no password set
+	DB:       0,  // use default DB
+})
 
 func OpenEditor(filepath string) {
 	cmd := exec.Command("vim", filepath, "+set filetype=yaml")
@@ -27,11 +32,6 @@ func main() {
 		os.Exit(2)
 	}
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
 	client.SetNX("redkeep:id-counter", 0, 0)
 
 	switch os.Args[1] {
@@ -57,7 +57,7 @@ func main() {
 		keys := client.Keys("redkeep:tags:*").Val()
 		var tag string
 		for i, key := range keys {
-			tag = strings.TrimLeft("redkeep:tags:")
+			tag = strings.TrimLeft(key, "redkeep:tags:")
 			fmt.Printf("%d) %s\n", i, tag)
 		}
 	default:
