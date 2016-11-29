@@ -6,14 +6,15 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
+	"strconv"
 	"time"
 )
 
 type Note struct {
-	Id      int64    `yaml:"id"`
+	Id      string   `yaml:"id"`
 	Title   string   `yaml:"title"`
-	Created int64    `yaml:"created"`
-	Updated int64    `yaml:"updated"`
+	Created string   `yaml:"created"`
+	Updated string   `yaml:"updated"`
 	Tags    []string `yaml:"tags"`
 	Open    []string `yaml:"open"`
 	Closed  []string `yaml:"closed"`
@@ -22,16 +23,14 @@ type Note struct {
 
 func (n *Note) validate(client redis.Client) error {
 	// Initialise timestamps
-	now := time.Now().Unix()
-	if n.Created == 0 {
+	now := strconv.FormatInt(time.Now().Unix(), 10)
+	if n.Created == "" {
 		n.Created = now
 	}
-	if n.Updated == 0 {
-		n.Updated = now
-	}
+	n.Updated = now
 
-	if n.Id == 0 {
-		n.Id = client.Incr("redkeep:id-counter").Val()
+	if n.Id == "" {
+		n.Id = strconv.FormatInt(client.Incr("redkeep:id-counter").Val(), 10)
 	}
 	return nil
 }
@@ -68,12 +67,12 @@ func (n *Note) updateTags(client redis.Client) {
 
 	// for tag in remove_key
 	for _, tag := range client.SMembers(remove_key).Val() {
-		client.SRem(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%d", n.Id))
+		client.SRem(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%s", n.Id))
 	}
 
 	// for tag in update_key
 	for _, tag := range client.SMembers(update_key).Val() {
-		client.SAdd(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%d", n.Id))
+		client.SAdd(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%s", n.Id))
 	}
 
 	client.Del(tags_key)
