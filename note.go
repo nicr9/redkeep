@@ -82,32 +82,33 @@ func (n *Note) pushTags(client redis.Client) {
 	client.SDiffStore(remove_key, tags_key, temp_key)
 	client.SDiffStore(update_key, temp_key, tags_key)
 
-	// for tag in remove_key
+	// Remove n from each tag set in remove_key
 	for _, tag := range client.SMembers(remove_key).Val() {
 		client.SRem(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%s", n.Id))
 	}
 
-	// for tag in update_key
+	// Add n to each tag set in update_key
 	for _, tag := range client.SMembers(update_key).Val() {
 		client.SAdd(fmt.Sprintf("redkeep:tags:%s", tag), fmt.Sprintf("%s", n.Id))
 	}
 
+	// Replace old tags_key
 	client.Del(tags_key)
 	client.Rename(temp_key, tags_key)
 
+	// Clean up
 	client.Del(remove_key)
 	client.Del(update_key)
 }
 
 func updateList(list []string, key string, client redis.Client) {
-	oldLen := client.LLen(key).Val()
-	for i, elem := range list {
-		client.LSet(key, int64(i), elem)
-	}
-	newLength := int64(len(list))
-	if oldLen > newLength {
-		client.LTrim(key, 0, newLength-1)
-	}
+	// Push new list to temp key
+	temp := fmt.Sprintf("tmp:%s", key)
+	client.LPush(temp, list...)
+
+	// Replace old key with temp key
+	client.Del(key)
+	client.Rename(temp, key)
 }
 
 func ToTempFile(notes []Note) string {
