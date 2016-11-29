@@ -158,3 +158,18 @@ func ValidateNotes(notes []Note, client redis.Client) error {
 
 	return nil
 }
+
+func ToFile(notes []Note, filepath string) error {
+
+	data, err := yaml.Marshal(&notes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(filepath, data, 0664)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
