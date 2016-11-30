@@ -21,7 +21,7 @@ type Note struct {
 	Body    string   `yaml:"body"`
 }
 
-func (n *Note) validate(client redis.Client) error {
+func (n *Note) validate(client *redis.Client) error {
 	// Initialise timestamps
 	now := strconv.FormatInt(time.Now().Unix(), 10)
 	if n.Created == "" {
@@ -31,7 +31,10 @@ func (n *Note) validate(client redis.Client) error {
 
 	if n.Id == "" {
 		n.Id = strconv.FormatInt(client.Incr("redkeep:id-counter").Val(), 10)
+	} else if _, err := strconv.Atoi(n.Id); err != nil {
+		return fmt.Errorf("Note ID is corrupt: %+v", n)
 	}
+
 	return nil
 }
 
@@ -54,10 +57,12 @@ func FromRedis(noteIds []string, client *redis.Client) (notes []Note, err error)
 }
 
 func ToRedis(notes *[]Note, client *redis.Client) error {
-	if err := validateNotes(notes, *client); err != nil {
-		log.Fatalf("validation error: %s", err)
-	}
 	for _, n := range *notes {
+		if err := n.validate(client); err != nil {
+			fmt.Printf("Validation error: %s\n", err)
+			continue
+		}
+
 		fmt.Printf("Saving '%s'...\n", n.Title)
 
 		key := fmt.Sprintf("redkeep:note:%s", n.Id)
@@ -157,14 +162,6 @@ func FromFile(filepath string) (*[]Note, error) {
 	}
 
 	return notes, nil
-}
-
-func validateNotes(notes *[]Note, client redis.Client) error {
-	for _, n := range *notes {
-		n.validate(client)
-	}
-
-	return nil
 }
 
 func ToFile(notes []Note, filepath string) error {
