@@ -26,22 +26,17 @@ func OpenEditor(filepath string) {
 	}
 }
 
-func EditNotes(notes []Note) {
-	filepath := ToTempFile(notes)
+func EditNotes(notes *[]Note) (results *[]Note) {
+	filepath := ToTempFile(*notes)
 	defer os.Remove(filepath)
 	OpenEditor(filepath)
 	var err error
-	notes, err = FromFile(filepath)
+	results, err = FromFile(filepath)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	if err := ValidateNotes(notes, *client); err != nil {
-		log.Fatalf("validation error: %s", err)
-	}
-	for i := range notes {
-		fmt.Printf("Saving '%s'...\n", notes[i].Title)
-		notes[i].toRedis(*client)
-	}
+
+	return results
 }
 
 func main() {
@@ -55,8 +50,9 @@ func main() {
 	switch os.Args[1] {
 	case "new":
 		note := Note{}
-		notes := []Note{note}
-		EditNotes(notes)
+		notes := &[]Note{note}
+		edited := EditNotes(notes)
+		ToRedis(edited, client)
 
 	case "list-tags":
 		keys := client.Keys("redkeep:tags:*").Val()
@@ -72,11 +68,12 @@ func main() {
 			tags[i] = fmt.Sprintf("redkeep:tags:%s", tag)
 		}
 		noteIds := client.SDiff(tags...).Val()
-		notes, err := fromRedis(noteIds, client)
+		notes, err := FromRedis(noteIds, client)
 		if err != nil {
 			log.Fatalf("error: %v", err)
 		}
-		EditNotes(notes)
+		edited := EditNotes(&notes)
+		ToRedis(edited, client)
 
 	default:
 		fmt.Printf("%q is not valid command.\n", os.Args[1])

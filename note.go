@@ -35,7 +35,7 @@ func (n *Note) validate(client redis.Client) error {
 	return nil
 }
 
-func fromRedis(noteIds []string, client *redis.Client) (notes []Note, err error) {
+func FromRedis(noteIds []string, client *redis.Client) (notes []Note, err error) {
 	for _, id := range noteIds {
 		title := client.Get(fmt.Sprintf("redkeep:note:%s:title", id)).Val()
 		created := client.Get(fmt.Sprintf("redkeep:note:%s:created", id)).Val()
@@ -53,18 +53,25 @@ func fromRedis(noteIds []string, client *redis.Client) (notes []Note, err error)
 	return notes, nil
 }
 
-func (n *Note) toRedis(client redis.Client) error {
-	key := fmt.Sprintf("redkeep:note:%s", n.Id)
+func ToRedis(notes *[]Note, client *redis.Client) error {
+	if err := validateNotes(notes, *client); err != nil {
+		log.Fatalf("validation error: %s", err)
+	}
+	for _, n := range *notes {
+		fmt.Printf("Saving '%s'...\n", n.Title)
 
-	client.Set(fmt.Sprintf("%s:title", key), n.Title, 0)
-	client.Set(fmt.Sprintf("%s:created", key), n.Created, 0)
-	client.Set(fmt.Sprintf("%s:updated", key), n.Updated, 0)
-	client.Set(fmt.Sprintf("%s:body", key), n.Body, 0)
+		key := fmt.Sprintf("redkeep:note:%s", n.Id)
 
-	n.pushTags(client)
+		client.Set(fmt.Sprintf("%s:title", key), n.Title, 0)
+		client.Set(fmt.Sprintf("%s:created", key), n.Created, 0)
+		client.Set(fmt.Sprintf("%s:updated", key), n.Updated, 0)
+		client.Set(fmt.Sprintf("%s:body", key), n.Body, 0)
 
-	updateList(n.Open, fmt.Sprintf("redkeep:note:%s:open", n.Id), client)
-	updateList(n.Closed, fmt.Sprintf("redkeep:note:%s:closed", n.Id), client)
+		n.pushTags(*client)
+
+		updateList(n.Open, fmt.Sprintf("redkeep:note:%s:open", n.Id), *client)
+		updateList(n.Closed, fmt.Sprintf("redkeep:note:%s:closed", n.Id), *client)
+	}
 
 	return nil
 }
@@ -137,14 +144,14 @@ func ToTempFile(notes []Note) string {
 	return tmpfile.Name()
 }
 
-func FromFile(filepath string) ([]Note, error) {
+func FromFile(filepath string) (*[]Note, error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
 
-	notes := []Note{}
-	err = yaml.Unmarshal(data, &notes)
+	notes := &[]Note{}
+	err = yaml.Unmarshal(data, notes)
 	if err != nil {
 		return nil, err
 	}
@@ -152,9 +159,9 @@ func FromFile(filepath string) ([]Note, error) {
 	return notes, nil
 }
 
-func ValidateNotes(notes []Note, client redis.Client) error {
-	for i := range notes {
-		notes[i].validate(client)
+func validateNotes(notes *[]Note, client redis.Client) error {
+	for _, n := range *notes {
+		n.validate(client)
 	}
 
 	return nil
