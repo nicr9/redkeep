@@ -75,6 +75,10 @@ func main() {
 		edited := EditNotes(&notes)
 		ToRedis(edited, client)
 
+	case "delete":
+		ids := os.Args[2:]
+		DeleteById(client, ids...)
+
 	default:
 		fmt.Printf("%q is not valid command.\n", os.Args[1])
 		os.Exit(2)

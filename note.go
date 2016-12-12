@@ -74,8 +74,8 @@ func ToRedis(notes *[]Note, client *redis.Client) error {
 
 		n.pushTags(*client)
 
-		updateList(n.Open, fmt.Sprintf("redkeep:note:%s:open", n.Id), *client)
-		updateList(n.Closed, fmt.Sprintf("redkeep:note:%s:closed", n.Id), *client)
+		updateList(n.Open, fmt.Sprintf("%s:open", key), *client)
+		updateList(n.Closed, fmt.Sprintf("%s:closed", key), *client)
 	}
 
 	return nil
@@ -177,4 +177,18 @@ func ToFile(notes []Note, filepath string) error {
 	}
 
 	return nil
+}
+
+func DeleteById(client *redis.Client, ids ...string) {
+	for _, id := range ids {
+		key := fmt.Sprintf("redkeep:note:%s", id)
+
+		// Add n to each tag set in update_key
+		tags_key := fmt.Sprintf("%s:tags", key)
+		for _, tag := range client.SMembers(tags_key).Val() {
+			client.SRem(fmt.Sprintf("redkeep:tags:%s", tag), id)
+		}
+
+		client.Del(fmt.Sprintf("%s:*", key))
+	}
 }
