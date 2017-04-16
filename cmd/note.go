@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"gopkg.in/redis.v3"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/redis.v5"
 	"io/ioutil"
 	"log"
 	"strconv"
@@ -11,14 +11,14 @@ import (
 )
 
 type Note struct {
-	Id      string   `yaml:"id"`
-	Title   string   `yaml:"title"`
-	Created string   `yaml:"created"`
-	Updated string   `yaml:"updated"`
-	Tags    []string `yaml:"tags"`
-	Open    []string `yaml:"open"`
-	Closed  []string `yaml:"closed"`
-	Body    string   `yaml:"body"`
+	Id      string   `json:"id"`
+	Title   string   `json:"title"`
+	Created string   `json:"created"`
+	Updated string   `json:"updated"`
+	Tags    []string `json:"tags"`
+	Open    []string `json:"open"`
+	Closed  []string `json:"closed"`
+	Body    string   `json:"body"`
 }
 
 func (n *Note) validate(client *redis.Client) error {
@@ -89,7 +89,7 @@ func (n *Note) pushTags(client redis.Client) {
 	remove_key := fmt.Sprintf("%s:remove", key)
 	update_key := fmt.Sprintf("%s:update", key)
 
-	client.SAdd(temp_key, n.Tags...)
+	client.SAdd(temp_key, n.Tags)
 
 	client.SDiffStore(remove_key, tags_key, temp_key)
 	client.SDiffStore(update_key, temp_key, tags_key)
@@ -116,7 +116,7 @@ func (n *Note) pushTags(client redis.Client) {
 func updateList(list []string, key string, client redis.Client) {
 	// Push new list to temp key
 	temp := fmt.Sprintf("tmp:%s", key)
-	client.LPush(temp, list...)
+	client.LPush(temp, list)
 
 	// Replace old key with temp key
 	client.Del(key)
@@ -125,7 +125,7 @@ func updateList(list []string, key string, client redis.Client) {
 
 func ToTempFile(notes []Note) string {
 	// Marshall notes
-	data, err := yaml.Marshal(&notes)
+	data, err := json.Marshal(&notes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func FromFile(filepath string) (*[]Note, error) {
 	}
 
 	notes := &[]Note{}
-	err = yaml.Unmarshal(data, notes)
+	err = json.Unmarshal(data, notes)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func FromFile(filepath string) (*[]Note, error) {
 
 func ToFile(notes []Note, filepath string) error {
 
-	data, err := yaml.Marshal(&notes)
+	data, err := json.Marshal(&notes)
 	if err != nil {
 		log.Fatal(err)
 	}
