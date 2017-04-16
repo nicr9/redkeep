@@ -58,7 +58,14 @@ func main() {
 		Password: os.Getenv("REDIS_PASSWD"),
 		DB:       int(dbInt),
 	})
-	log.Println("Connected!")
+	client.Wait(1, 15*1000) // Wait at least 15 seconds for redis to respond
+
+	log.Println("Ready to test connection...")
+	if pong, err := client.Ping().Result(); err != nil {
+		log.Println(pong, err)
+	} else {
+		log.Println("Connection looks good!")
+	}
 
 	// id-counter is used to get unique ids for new notes
 	client.SetNX("redkeep:id-counter", 0, 0)
