@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	redkeep "github.com/nicr9/redkeep/pkg"
 	"gopkg.in/redis.v5"
 	"io/ioutil"
 	"log"
@@ -40,11 +41,11 @@ func Keys(client *redis.Client, w http.ResponseWriter, r *http.Request) {
 }
 
 func ApiSaveNotes(client *redis.Client, w http.ResponseWriter, r *http.Request) {
-	var notes *[]Note
+	var notes *[]redkeep.Note
 	b, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(b, &notes)
 
-	if err := ToRedis(notes, client); err != nil {
+	if err := redkeep.ToRedis(notes, client); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Printf("Failed to save notes to Redis: %v", notes)
 	} else {

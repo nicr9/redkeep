@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	redkeep "github.com/nicr9/redkeep/pkg"
 	"gopkg.in/redis.v3"
 	"log"
 	"os"
@@ -26,12 +27,12 @@ func OpenEditor(filepath string) {
 	}
 }
 
-func EditNotes(notes *[]Note) (results *[]Note) {
-	filepath := ToTempFile(*notes)
+func EditNotes(notes *[]redkeep.Note) (results *[]redkeep.Note) {
+	filepath := redkeep.ToTempFile(*notes)
 	defer os.Remove(filepath)
 	OpenEditor(filepath)
 	var err error
-	results, err = FromFile(filepath)
+	results, err = redkeep.FromFile(filepath)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
@@ -49,10 +50,10 @@ func main() {
 
 	switch os.Args[1] {
 	case "new":
-		note := Note{}
-		notes := &[]Note{note}
+		note := redkeep.Note{}
+		notes := &[]redkeep.Note{note}
 		edited := EditNotes(notes)
-		ToRedis(edited, client)
+		redkeep.ToRedis(edited, client)
 
 	case "list-tags":
 		keys := client.Keys("redkeep:tags:*").Val()
@@ -68,16 +69,16 @@ func main() {
 			tags[i] = fmt.Sprintf("redkeep:tags:%s", tag)
 		}
 		noteIds := client.SDiff(tags...).Val()
-		notes, err := FromRedis(noteIds, client)
+		notes, err := redkeep.FromRedis(noteIds, client)
 		if err != nil {
 			log.Fatalf("error: %v", err)
 		}
 		edited := EditNotes(&notes)
-		ToRedis(edited, client)
+		redkeep.ToRedis(edited, client)
 
 	case "delete":
 		ids := os.Args[2:]
-		DeleteById(client, ids...)
+		redkeep.DeleteById(client, ids...)
 
 	default:
 		fmt.Printf("%q is not valid command.\n", os.Args[1])
