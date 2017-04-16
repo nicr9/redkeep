@@ -38,17 +38,19 @@ func Keys(client *redis.Client, w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	log.Println("Starting up RedKeep...")
+
 	// Validate environment variables
 	dbStr := os.Getenv("REDIS_DB")
 	var dbInt int64
 	var err error
 	if dbInt, err = strconv.ParseInt(dbStr, 10, 0); err != nil {
-		fmt.Printf("REDIS_DB should be an int, got '%v' instead\n", dbStr)
+		log.Printf("REDIS_DB should be an int, got '%v' instead\n", dbStr)
 		os.Exit(1)
 	}
 
 	var host string = os.Getenv("REDIS_HOSTPORT")
-	fmt.Printf("Connecting to host %s, to db %d", host, dbInt)
+	log.Printf("Connecting to host %s, to db %d", host, dbInt)
 
 	// Connect to Redis
 	var client *redis.Client = redis.NewClient(&redis.Options{
@@ -56,6 +58,7 @@ func main() {
 		Password: os.Getenv("REDIS_PASSWD"),
 		DB:       int(dbInt),
 	})
+	log.Println("Connected!")
 
 	// id-counter is used to get unique ids for new notes
 	client.SetNX("redkeep:id-counter", 0, 0)
