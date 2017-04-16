@@ -3,5 +3,5 @@ FROM golang:1.8
 MAINTAINER Nic Roland <nicroland9@gmail.com>
 
 WORKDIR /go/src/app
-COPY cmd/* /go/src/app/
+COPY api/* /go/src/app/
 RUN go get -d -v ./...

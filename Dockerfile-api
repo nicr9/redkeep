@@ -3,7 +3,7 @@ FROM nicr9/redkeep-base
 MAINTAINER Nic Roland <nicroland9@gmail.com>
 
 WORKDIR /go/src/redkeep
-COPY cmd/* /go/src/redkeep/
+COPY api/* /go/src/redkeep/
 RUN go install -v
 
 ENTRYPOINT redkeep
