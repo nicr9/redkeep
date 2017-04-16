@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"gopkg.in/redis.v5"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -34,6 +36,19 @@ func Keys(client *redis.Client, w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Can't find welcome message: %s", err)
+	}
+}
+
+func ApiSaveNotes(client *redis.Client, w http.ResponseWriter, r *http.Request) {
+	var notes *[]Note
+	b, _ := ioutil.ReadAll(r.Body)
+	json.Unmarshal(b, &notes)
+
+	if err := ToRedis(notes, client); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Printf("Failed to save notes to Redis: %v", notes)
+	} else {
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -75,6 +90,8 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", passClient(client, Dashboard))
 	r.HandleFunc("/keys", passClient(client, Keys))
+	r.HandleFunc("/api/v1/save", passClient(client, ApiSaveNotes)).
+		Methods("POST")
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":80", r))
