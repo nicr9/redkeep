@@ -3,6 +3,8 @@ install:
 	helm package redkeep-api
 	helm install redkeep-api-*.tgz
 
+build: build-base build-api
+
 build-base:
 	docker build -f Dockerfile-base -t nicr9/redkeep-base:latest .
 
