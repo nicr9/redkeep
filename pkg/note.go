@@ -1,9 +1,12 @@
-package main
+package redkeep
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"gopkg.in/redis.v5"
+	"gopkg.in/yaml.v2"
+	"io"
 	"io/ioutil"
 	"log"
 	"strconv"
@@ -11,14 +14,14 @@ import (
 )
 
 type Note struct {
-	Id      string   `json:"id"`
-	Title   string   `json:"title"`
-	Created string   `json:"created"`
-	Updated string   `json:"updated"`
-	Tags    []string `json:"tags"`
-	Open    []string `json:"open"`
-	Closed  []string `json:"closed"`
-	Body    string   `json:"body"`
+	Id      string   `yaml:"id"      json:"id"`
+	Title   string   `yaml:"title"   json:"title"`
+	Created string   `yaml:"created" json:"created"`
+	Updated string   `yaml:"updated" json:"updated"`
+	Tags    []string `yaml:"tags"    json:"tags"`
+	Open    []string `yaml:"open"    json:"open"`
+	Closed  []string `yaml:"closed"  json:"closed"`
+	Body    string   `yaml:"body"    json:"body"`
 }
 
 func (n *Note) validate(client *redis.Client) error {
@@ -62,8 +65,6 @@ func ToRedis(notes *[]Note, client *redis.Client) error {
 			fmt.Printf("Validation error: %s\n", err)
 			continue
 		}
-
-		fmt.Printf("Saving '%s'...\n", n.Title)
 
 		key := fmt.Sprintf("redkeep:note:%s", n.Id)
 
@@ -125,7 +126,7 @@ func updateList(list []string, key string, client redis.Client) {
 
 func ToTempFile(notes []Note) string {
 	// Marshall notes
-	data, err := json.Marshal(&notes)
+	data, err := yaml.Marshal(&notes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -156,7 +157,7 @@ func FromFile(filepath string) (*[]Note, error) {
 	}
 
 	notes := &[]Note{}
-	err = json.Unmarshal(data, notes)
+	err = yaml.Unmarshal(data, notes)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +167,7 @@ func FromFile(filepath string) (*[]Note, error) {
 
 func ToFile(notes []Note, filepath string) error {
 
-	data, err := json.Marshal(&notes)
+	data, err := yaml.Marshal(&notes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -191,4 +192,13 @@ func DeleteById(client *redis.Client, ids ...string) {
 
 		client.Del(fmt.Sprintf("%s:*", key))
 	}
+}
+
+func ToJsonReader(notes *[]Note) (io.Reader, error) {
+	b, err := json.Marshal(notes)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewBuffer(b), nil
 }

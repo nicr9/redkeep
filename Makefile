@@ -1,7 +1,20 @@
-install:
-	rm redkeep-api-*.tgz
-	helm package redkeep-api
-	helm install redkeep-api-*.tgz
+up:
+	minikube start
+	wait 5
+	helm init
+	wait 5
+	helm install -n rk-test redkeep-api
+
+down:
+	helm delete --purge rk-test
+	helm reset
+	minikube stop
+
+open:
+	minikube service rk-test-redkeep-api
+
+new:
+	REDKEEP_HOST=$(shell minikube service --url rk-test-redkeep-api) go run cmd/redkeep.go new
 
 build: build-base build-api
 

@@ -45,6 +45,7 @@ func ApiSaveNotes(client *redis.Client, w http.ResponseWriter, r *http.Request) 
 	b, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(b, &notes)
 
+	log.Printf("Saving '%s'...\n", n.Title)
 	if err := redkeep.ToRedis(notes, client); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Printf("Failed to save notes to Redis: %v", notes)
@@ -78,7 +79,7 @@ func main() {
 
 	log.Println("Ready to test connection...")
 	if pong, err := client.Ping().Result(); err != nil {
-		log.Println(pong, err)
+		log.Println("Redis ping failed:", pong, err)
 	} else {
 		log.Println("Connection looks good!")
 	}
